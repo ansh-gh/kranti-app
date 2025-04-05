@@ -36,9 +36,9 @@ const userRegister = async (req, res, next) => {
       if (existingUser.isVerify) {
         return next(handleErrors(400, "Email is already registered!"));
       } else {
-        
+
         existingUser.name = name;
-        existingUser.password = password; 
+        existingUser.password = password;
         existingUser.otp = otp;
         await existingUser.save();
       }
@@ -46,7 +46,7 @@ const userRegister = async (req, res, next) => {
       const newUser = new User({
         name,
         email,
-        password, 
+        password,
         isVerify: false,
         otp,
       });
@@ -58,8 +58,18 @@ const userRegister = async (req, res, next) => {
       from: process.env.EMAIL,
       to: email,
       subject: "Verify Your Email",
-      text: `Your OTP is: ${otp}`,
+      text: `
+    To sign in to your account, please use the following One-Time Password (OTP):
+    
+    ${otp}
+    
+    This code is valid for the next 10 minutes. Do not share it with anyone.
+    
+    Regards,  
+    Team KRANTI
+      `.trim(), // trim removes leading/trailing whitespace
     });
+    
 
     res.status(201).json({
       success: true,
@@ -125,10 +135,10 @@ const userLogin = async (req, res, next) => {
     }
 
     const findUser = await User.findOne({ email }).select("+password");
-    if (!findUser || !findUser.isVerify ) {
+    if (!findUser || !findUser.isVerify) {
       return next(handleErrors(404, "User not found, please register first! and verify email"));
     }
-    
+
 
     const isPasswordValid = await findUser.comparePassword(password);
     if (!isPasswordValid) {
@@ -179,8 +189,8 @@ const showProfile = async (req, res, next) => {
       name: user.name,
       email: user.email,
       image: user.image,
-      mobile_number:user.mobile_number,
-      location:user.location
+      mobile_number: user.mobile_number,
+      location: user.location
     });
   } catch (error) {
     return next(handleErrors(500, error.message || "Server Error!"));
@@ -203,16 +213,16 @@ const passwordChange = async (req, res, next) => {
       return next(handleErrors(404, "User not found"));
     }
 
-  
+
     const isSamePassword = await user.comparePassword(updatedPassword);
-    
+
     if (isSamePassword) {
       return next(
         handleErrors(400, "New password must be different from old password")
       );
     }
 
-    
+
     const isPasswordValid = await user.comparePassword(password);
 
     if (!isPasswordValid) {
@@ -235,7 +245,7 @@ const passwordChange = async (req, res, next) => {
 
 
 
-const verifyUser=async (req,res,next)=>{
+const verifyUser = async (req, res, next) => {
 
 
   try {
@@ -245,7 +255,7 @@ const verifyUser=async (req,res,next)=>{
 
     const userId = req.user.id;
     const user = await User.findById(userId);
-   
+
 
     if (!user) {
       return next(handleErrors(404, "User not found!"));
@@ -254,7 +264,7 @@ const verifyUser=async (req,res,next)=>{
     res.status(200).json({
       success: true,
       token: user.token,
-      
+
     });
   } catch (error) {
     return next(handleErrors(500, error.message || "Server Error!"));
@@ -263,7 +273,7 @@ const verifyUser=async (req,res,next)=>{
 
 const logoutUser = async (req, res, next) => {
   try {
-    
+
     if (!req.user || !req.user.id) {
       return next(handleErrors(401, "Unauthorized! Please log in."));
     }
@@ -275,7 +285,7 @@ const logoutUser = async (req, res, next) => {
       return next(handleErrors(404, "User not found!"));
     }
 
-   
+
     user.token = null;
     await user.save();
 
@@ -293,12 +303,52 @@ const logoutUser = async (req, res, next) => {
 
 
 
+// const updateProfile = async (req, res, next) => {
+//   try {
+//     if (!req.user || !req.user.id) {
+//       return next(handleErrors(401, "Unauthorized! Please log in."));
+//     }
+//     console.log(req.user.id)
+
+//     const userId = req.user.id;
+//     const user = await User.findById(userId);
+
+//     if (!user) {
+//       return next(handleErrors(404, "User not found!"));
+//     }
+
+
+//     res.status(200).json({
+//       message: "Profile updated successfully!",
+//       image: user.image, 
+//     });
+
+
+//     if (req.file) {
+//       try {
+//         if (user.image && user.public_id) {
+//           await cloudinary.uploader.destroy(user.public_id);
+//         }
+
+//         user.image = req.file.path;
+//         user.public_id = req.file.filename;
+//         await user.save();
+//       } catch (imgErr) {
+//         console.error("Image upload failed in background:", imgErr.message);
+//       }
+//     }
+//   } catch (error) {
+//     console.error("Error in updateProfile:", error.message);
+//     return next(handleErrors(500, "Server Error!"));
+//   }
+// };
+
+
 const updateProfile = async (req, res, next) => {
   try {
     if (!req.user || !req.user.id) {
       return next(handleErrors(401, "Unauthorized! Please log in."));
     }
-    console.log(req.user.id)
 
     const userId = req.user.id;
     const user = await User.findById(userId);
@@ -307,13 +357,22 @@ const updateProfile = async (req, res, next) => {
       return next(handleErrors(404, "User not found!"));
     }
 
-    
-    res.status(200).json({
-      message: "Profile updated successfully!",
-      image: user.image, 
-    });
+    // Update fields if provided
+    const { location, mobile_number } = req.body;
 
-    
+    if (location) {
+      user.location = location;
+    }
+
+    if (mobile_number) {
+      const mobileStr = mobile_number.toString();
+      if (mobileStr.length !== 10) {
+        return next(handleErrors(400, "Mobile number must be 10 digits"));
+      }
+      user.mobile_number = mobile_number;
+    }
+
+    // Handle image upload if file is present
     if (req.file) {
       try {
         if (user.image && user.public_id) {
@@ -322,16 +381,28 @@ const updateProfile = async (req, res, next) => {
 
         user.image = req.file.path;
         user.public_id = req.file.filename;
-        await user.save();
       } catch (imgErr) {
-        console.error("Image upload failed in background:", imgErr.message);
+        console.error("Image upload failed:", imgErr.message);
       }
     }
+
+    await user.save(); // Save updated user data
+
+    res.status(200).json({
+      message: "Profile updated successfully!",
+      user: {
+        name: user.name,
+        email: user.email,
+        location: user.location,
+        mobile_number: user.mobile_number,
+        image: user.image,
+      },
+    });
+
   } catch (error) {
     console.error("Error in updateProfile:", error.message);
     return next(handleErrors(500, "Server Error!"));
   }
 };
 
-
-module.exports = { userRegister, userLogin, updateProfile, showProfile, passwordChange, verifyUser, logoutUser ,verifyEmail};
+module.exports = { userRegister, userLogin, updateProfile, showProfile, passwordChange, verifyUser, logoutUser, verifyEmail };
