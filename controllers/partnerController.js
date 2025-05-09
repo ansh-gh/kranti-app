@@ -13,7 +13,7 @@ const createPartner = async (req, res, next) => {
       return next(handleErrors(400, "All fields are required"));
     }
 
-    const existingPartner = await Partner.findOne({ partner_mobile_number });
+    const existingPartner = await Partner.findOne({ partner_mobile_number:partner_mobile_number, current_userId:userId });
 
     if (existingPartner) {
       return next(
