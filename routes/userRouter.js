@@ -2,7 +2,7 @@ const express=require('express')
 const { userRegister, userLogin, updateProfile, showProfile,passwordChange, verifyUser, logoutUser,verifyEmail } = require('../controllers/userController')
 const upload = require('../middleware/cloudinary.upload')
 const authUser = require('../middleware/authUser')
-const {forgotPassword, verifyOtpAndResetPassword} = require("../controllers/forgateController")
+const {forgotPassword, verifyOtp, resetPassword,} = require("../controllers/forgateController")
 const userRouter=express.Router()
 
 userRouter.post('/register',userRegister)
@@ -15,7 +15,8 @@ userRouter.post('/logout', authUser, logoutUser)
 userRouter.post('/update-profile',authUser,upload.single('image'), updateProfile)
 
 userRouter.post('/forgate-password', forgotPassword)
-userRouter.post('/reset-password', verifyOtpAndResetPassword)
+userRouter.post('/verify-user', verifyOtp)
+userRouter.post('/reset-password', resetPassword)
 
 
 

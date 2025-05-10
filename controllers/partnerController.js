@@ -214,16 +214,19 @@ const addPartnerReturn = async (req, res, next) => {
     const { id } = req.params;
     const { return_amount } = req.body;
 
+    console.log(id,return_amount)
     if (!return_amount || typeof return_amount !== "number") {
       return next(
         handleErrors(400, "Return amount is required and must be a number.")
       );
     }
 
+    console.log(id, req.user.id)
     const existPartner = await Partner.findOne({
       _id: id,
       current_userId: req.user.id,
     });
+
 
     if (!existPartner) {
       return next(handleErrors(404, "Partner not found."));
