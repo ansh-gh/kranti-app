@@ -35,7 +35,19 @@ const partnerSchema = new mongoose.Schema(
     },
     partner_age:{
       type:String
-  }
+  },
+  partner_return: [
+      {
+        return_amount: {
+          type: Number,
+          required: true,
+        },
+        date: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   { timestamps: true }
 );

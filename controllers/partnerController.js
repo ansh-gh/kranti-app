@@ -209,10 +209,95 @@ const partnerUpdate = async (req, res, next) => {
 };
 
 
+const addPartnerReturn = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { return_amount } = req.body;
+
+    if (!return_amount || typeof return_amount !== "number") {
+      return next(
+        handleErrors(400, "Return amount is required and must be a number.")
+      );
+    }
+
+    const existPartner = await Partner.findOne({
+      _id: id,
+      current_userId: req.user.id,
+    });
+
+    if (!existPartner) {
+      return next(handleErrors(404, "Partner not found."));
+    }
+
+    existPartner.partner_return.unshift({
+      return_amount,
+      date: new Date(),
+    });
+
+    await existPartner.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Partner return added successfully.",
+      data: existPartner.partner_return,
+    });
+  } catch (error) {
+    return next(
+      handleErrors(
+        500,
+        "Could not update partner return. Please try again later."
+      )
+    );
+  }
+};
+
+
+const deletePartnerReturn = async (req, res, next) => {
+  try {
+    const { partnerId, returnId } = req.params;
+
+    
+    const existPartner = await Partner.findOne({
+      _id: partnerId,
+      current_userId: req.user.id,
+    });
+
+    if (!existPartner) {
+      return next(handleErrors(404, "Partner not found."));
+    }
+
+    
+    const returnIndex = existPartner.partner_return.findIndex(
+      (entry) => entry._id.toString() === returnId
+    );
+
+    if (returnIndex === -1) {
+      return next(handleErrors(404, "Return entry not found."));
+    }
+
+    
+    existPartner.partner_return.splice(returnIndex, 1);
+
+    await existPartner.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Partner return deleted successfully.",
+      data: existPartner.partner_return,
+    });
+  } catch (error) {
+    return next(
+      handleErrors(500, "Failed to delete partner return. Please try again.")
+    );
+  }
+};
+
 module.exports = {
   createPartner,
   showPartner,
   partnerUpdate,
   deletePartner,
   findPartnerById,
+  addPartnerReturn,
+  deletePartnerReturn
 };
