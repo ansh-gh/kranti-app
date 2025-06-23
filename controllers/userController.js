@@ -6,19 +6,25 @@ const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
 const fs = require("fs");
-const { console } = require("inspector");
+
+const Worker=require("../models/worker.model")
+const Return = require("../models/return.model");
+const Production = require("../models/production.model");
+const PInvestment = require("../models/pinvestment.model");
+const Partner = require("../models/partener.model");
+const Investment = require("../models/investment.model");
+const WorkerAttendance = require("../models/attendance.model");
+const History = require("../models/history.model");
 
 require("dotenv").config();
-
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
     user: process.env.EMAIL,
-    pass: process.env.PASSWORD
+    pass: process.env.PASSWORD,
   },
 });
-
 
 const userRegister = async (req, res, next) => {
   try {
@@ -36,7 +42,6 @@ const userRegister = async (req, res, next) => {
       if (existingUser.isVerify) {
         return next(handleErrors(400, "Email is already registered!"));
       } else {
-
         existingUser.name = name;
         existingUser.password = password;
         existingUser.otp = otp;
@@ -69,21 +74,16 @@ const userRegister = async (req, res, next) => {
     Team KRANTI
       `.trim(), // trim removes leading/trailing whitespace
     });
-    
 
     res.status(201).json({
       success: true,
       message: "OTP sent to your email!",
     });
-
   } catch (error) {
     console.error("Registration Error:", error);
     next(handleErrors(500, "Something went wrong, please try again!"));
   }
 };
-
-
-
 
 const verifyEmail = async (req, res, next) => {
   try {
@@ -91,7 +91,8 @@ const verifyEmail = async (req, res, next) => {
     const user = await User.findOne({ email }).select("+password");
 
     if (!user) return res.status(400).json({ message: "User not found!" });
-    if (user.otp !== otp) return res.status(400).json({ message: "Invalid OTP!" });
+    if (user.otp !== otp)
+      return res.status(400).json({ message: "Invalid OTP!" });
 
     user.isVerify = true;
     user.otp = null;
@@ -122,10 +123,6 @@ const verifyEmail = async (req, res, next) => {
   }
 };
 
-
-
-
-
 const userLogin = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -136,9 +133,13 @@ const userLogin = async (req, res, next) => {
 
     const findUser = await User.findOne({ email }).select("+password");
     if (!findUser || !findUser.isVerify) {
-      return next(handleErrors(404, "User not found, please register first! and verify email"));
+      return next(
+        handleErrors(
+          404,
+          "User not found, please register first! and verify email"
+        )
+      );
     }
-
 
     const isPasswordValid = await findUser.comparePassword(password);
     if (!isPasswordValid) {
@@ -190,7 +191,7 @@ const showProfile = async (req, res, next) => {
       email: user.email,
       image: user.image,
       mobile_number: user.mobile_number,
-      location: user.location
+      location: user.location,
     });
   } catch (error) {
     return next(handleErrors(500, error.message || "Server Error!"));
@@ -213,7 +214,6 @@ const passwordChange = async (req, res, next) => {
       return next(handleErrors(404, "User not found"));
     }
 
-
     const isSamePassword = await user.comparePassword(updatedPassword);
 
     if (isSamePassword) {
@@ -221,7 +221,6 @@ const passwordChange = async (req, res, next) => {
         handleErrors(400, "New password must be different from old password")
       );
     }
-
 
     const isPasswordValid = await user.comparePassword(password);
 
@@ -242,12 +241,7 @@ const passwordChange = async (req, res, next) => {
   }
 };
 
-
-
-
 const verifyUser = async (req, res, next) => {
-
-
   try {
     if (!req.user || !req.user.id) {
       return next(handleErrors(401, "Unauthorized! Please log in."));
@@ -255,7 +249,6 @@ const verifyUser = async (req, res, next) => {
 
     const userId = req.user.id;
     const user = await User.findById(userId);
-
 
     if (!user) {
       return next(handleErrors(404, "User not found!"));
@@ -264,7 +257,6 @@ const verifyUser = async (req, res, next) => {
     res.status(200).json({
       success: true,
       token: user.token,
-
     });
   } catch (error) {
     return next(handleErrors(500, error.message || "Server Error!"));
@@ -273,7 +265,6 @@ const verifyUser = async (req, res, next) => {
 
 const logoutUser = async (req, res, next) => {
   try {
-
     if (!req.user || !req.user.id) {
       return next(handleErrors(401, "Unauthorized! Please log in."));
     }
@@ -284,7 +275,6 @@ const logoutUser = async (req, res, next) => {
     if (!user) {
       return next(handleErrors(404, "User not found!"));
     }
-
 
     user.token = null;
     await user.save();
@@ -296,53 +286,7 @@ const logoutUser = async (req, res, next) => {
   } catch (error) {
     return next(handleErrors(500, error.message || "Server Error!"));
   }
-
-
-}
-
-
-
-
-// const updateProfile = async (req, res, next) => {
-//   try {
-//     if (!req.user || !req.user.id) {
-//       return next(handleErrors(401, "Unauthorized! Please log in."));
-//     }
-//     console.log(req.user.id)
-
-//     const userId = req.user.id;
-//     const user = await User.findById(userId);
-
-//     if (!user) {
-//       return next(handleErrors(404, "User not found!"));
-//     }
-
-
-//     res.status(200).json({
-//       message: "Profile updated successfully!",
-//       image: user.image, 
-//     });
-
-
-//     if (req.file) {
-//       try {
-//         if (user.image && user.public_id) {
-//           await cloudinary.uploader.destroy(user.public_id);
-//         }
-
-//         user.image = req.file.path;
-//         user.public_id = req.file.filename;
-//         await user.save();
-//       } catch (imgErr) {
-//         console.error("Image upload failed in background:", imgErr.message);
-//       }
-//     }
-//   } catch (error) {
-//     console.error("Error in updateProfile:", error.message);
-//     return next(handleErrors(500, "Server Error!"));
-//   }
-// };
-
+};
 
 const updateProfile = async (req, res, next) => {
   try {
@@ -398,11 +342,73 @@ const updateProfile = async (req, res, next) => {
         image: user.image,
       },
     });
-
   } catch (error) {
     console.error("Error in updateProfile:", error.message);
     return next(handleErrors(500, "Server Error!"));
   }
 };
 
-module.exports = { userRegister, userLogin, updateProfile, showProfile, passwordChange, verifyUser, logoutUser, verifyEmail };
+
+const deleteUserAccount = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { password } = req.body;
+
+    const user = await User.findById(userId).select("+password");
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const isPasswordValid = await user.comparePassword(password)
+    if (!isPasswordValid) {
+      return res.status(401).json({ success: false, message: "Incorrect password" });
+    }
+
+    
+    const deletionResults = await Promise.allSettled([
+      Worker.deleteMany({ current_userId: userId }),
+      Return.deleteMany({ current_userId: userId }),
+      Production.deleteMany({ current_userId: userId }),
+      PInvestment.deleteMany({ current_userId: userId }),
+      Partner.deleteMany({ current_userId: userId }),
+      Investment.deleteMany({ current_userId: userId }),
+      History.deleteMany({ current_userId: userId }),
+      WorkerAttendance.deleteMany({ current_userId: userId })
+    ]);
+
+    // Optional: Log any failed deletions
+    deletionResults.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        console.error(`Error deleting related model at index ${index}:`, result.reason);
+      }
+    });
+
+    // Delete the user
+    await User.findByIdAndDelete(userId);
+
+    return res.status(200).json({
+      success: true,
+      message: "User account and all related data deleted successfully ."
+    });
+
+  } catch (error) {
+    console.error("Delete Account Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong Delete account. Please try again.  ",
+    });
+  }
+};
+
+
+module.exports = {
+  userRegister,
+  userLogin,
+  updateProfile,
+  showProfile,
+  passwordChange,
+  verifyUser,
+  logoutUser,
+  verifyEmail,
+  deleteUserAccount
+};
